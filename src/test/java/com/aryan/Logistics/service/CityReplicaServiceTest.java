@@ -13,7 +13,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,21 +20,21 @@ class CityReplicaServiceTest {
 
     private CityReplicaService cityReplicaService;
     private GeoUtils geoUtils;
+    private Class<?> pairClass;
+    private Constructor<?> pairConstructor;
 
     @BeforeEach
     void setUp() throws Exception {
-        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
-        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
+        pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
+        pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
         pairConstructor.setAccessible(true);
 
-        @SuppressWarnings("unchecked")
-        ArrayList<Object> itemsList = new ArrayList<>();
+        ArrayList itemsList = new ArrayList();
         itemsList.add(pairConstructor.newInstance("Apple", 1.5f));
         itemsList.add(pairConstructor.newInstance("Banana", 0.8f));
         itemsList.add(pairConstructor.newInstance("Orange", 2.0f));
 
-        @SuppressWarnings("unchecked")
-        ArrayList<Object> locationsList = new ArrayList<>();
+        ArrayList locationsList = new ArrayList();
         locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f)); // Bangalore
         locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f)); // Chennai
         locationsList.add(pairConstructor.newInstance(19.0760f, 72.8777f)); // Mumbai
@@ -43,6 +42,20 @@ class CityReplicaServiceTest {
 
         cityReplicaService = new CityReplicaService(5, 2, itemsList, locationsList);
         geoUtils = new GeoUtils();
+    }
+
+    private ArrayList makeItemsList() throws Exception {
+        ArrayList list = new ArrayList();
+        list.add(pairConstructor.newInstance("Item", 1.0f));
+        return list;
+    }
+
+    private ArrayList makeLocationsList(float... coords) throws Exception {
+        ArrayList list = new ArrayList();
+        for (int i = 0; i < coords.length; i += 2) {
+            list.add(pairConstructor.newInstance(coords[i], coords[i + 1]));
+        }
+        return list;
     }
 
     @Test
@@ -190,16 +203,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_SingleLocation_DoesNotHang() {
-        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
-        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
-        pairConstructor.setAccessible(true);
-
-        ArrayList<Object> itemsList = new ArrayList<>();
-        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
-
-        ArrayList<Object> locationsList = new ArrayList<>();
-        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
+    void testConstructor_SingleLocation_DoesNotHang() throws Exception {
+        ArrayList itemsList = makeItemsList();
+        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f);
 
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
                 () -> new CityReplicaService(1, 1, itemsList, locationsList),
@@ -207,17 +213,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_TwoLocationsRoadsCntExceedsMax_DoesNotHang() {
-        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
-        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
-        pairConstructor.setAccessible(true);
-
-        ArrayList<Object> itemsList = new ArrayList<>();
-        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
-
-        ArrayList<Object> locationsList = new ArrayList<>();
-        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
-        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f));
+    void testConstructor_TwoLocationsRoadsCntExceedsMax_DoesNotHang() throws Exception {
+        ArrayList itemsList = makeItemsList();
+        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f, 13.0827f, 80.2707f);
 
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
                 () -> new CityReplicaService(2, 1, itemsList, locationsList),
@@ -225,17 +223,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_WarehouseCountExceedsLocations_ShouldNotCrash() {
-        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
-        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
-        pairConstructor.setAccessible(true);
-
-        ArrayList<Object> itemsList = new ArrayList<>();
-        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
-
-        ArrayList<Object> locationsList = new ArrayList<>();
-        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
-        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f));
+    void testConstructor_WarehouseCountExceedsLocations_ShouldNotCrash() throws Exception {
+        ArrayList itemsList = makeItemsList();
+        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f, 13.0827f, 80.2707f);
 
         assertDoesNotThrow(() -> new CityReplicaService(3, 3, itemsList, locationsList),
                 "Constructor should handle warehouseCnt > locations.size() gracefully, not throw IndexOutOfBoundsException");
