@@ -1,0 +1,278 @@
+package com.aryan.Logistics.service;
+
+import com.aryan.Logistics.models.Item;
+import com.aryan.Logistics.models.Location;
+import com.aryan.Logistics.models.Road;
+import com.aryan.Logistics.models.Warehouse;
+import com.aryan.Logistics.Utils.GeoUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class CityReplicaServiceTest {
+
+    private CityReplicaService cityReplicaService;
+    private GeoUtils geoUtils;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
+        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
+        pairConstructor.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        ArrayList<Object> itemsList = new ArrayList<>();
+        itemsList.add(pairConstructor.newInstance("Apple", 1.5f));
+        itemsList.add(pairConstructor.newInstance("Banana", 0.8f));
+        itemsList.add(pairConstructor.newInstance("Orange", 2.0f));
+
+        @SuppressWarnings("unchecked")
+        ArrayList<Object> locationsList = new ArrayList<>();
+        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f)); // Bangalore
+        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f)); // Chennai
+        locationsList.add(pairConstructor.newInstance(19.0760f, 72.8777f)); // Mumbai
+        locationsList.add(pairConstructor.newInstance(28.7041f, 77.1025f)); // Delhi
+
+        cityReplicaService = new CityReplicaService(5, 2, itemsList, locationsList);
+        geoUtils = new GeoUtils();
+    }
+
+    @Test
+    void testConstructor_CreatesCorrectNumberOfItems() {
+        assertEquals(3, getItems().size());
+    }
+
+    @Test
+    void testConstructor_CreatesCorrectNumberOfWarehouses() {
+        assertEquals(2, getWarehouses().size());
+    }
+
+    @Test
+    void testConstructor_CreatesCorrectNumberOfLocations() {
+        assertEquals(4, getLocations().size());
+    }
+
+    @Test
+    void testConstructor_CreatesAtLeastMinimumRoads() {
+        int minRoads = getLocations().size() - 1;
+        assertTrue(getRoads().size() >= minRoads * 2, "Should have at least 2*(n-1) directed roads");
+    }
+
+    @Test
+    void testConstructor_NoSelfLoopRoads() {
+        for (Road road : getRoads()) {
+            assertNotEquals(road.getFrom(), road.getTo(), "Road should not connect a location to itself");
+        }
+    }
+
+    @Test
+    void testConstructor_RoadDistanceMatchesGeoUtils() {
+        GeoUtils geoUtils = new GeoUtils();
+        for (Road road : getRoads()) {
+            double expected = geoUtils.distance(road.getFrom(), road.getTo());
+            assertEquals(expected, road.getDistance(), 1e-9,
+                    "Road distance should match GeoUtils calculation");
+        }
+    }
+
+    @Test
+    void testConstructor_EveryRoadHasReverseCounterpart() {
+        List<Road> roads = getRoads();
+        for (Road road : roads) {
+            boolean hasReverse = roads.stream().anyMatch(r ->
+                    r.getFrom().equals(road.getTo()) &&
+                    r.getTo().equals(road.getFrom()) &&
+                    r.getDistance().equals(road.getDistance()));
+            assertTrue(hasReverse, "Every road should have a reverse counterpart");
+        }
+    }
+
+    @Test
+    void testConstructor_WarehousesUseDistinctLocationsFromInput() {
+        List<Warehouse> warehouses = getWarehouses();
+        List<Location> locations = getLocations();
+        for (int i = 0; i < warehouses.size(); i++) {
+            assertEquals(locations.get(i), warehouses.get(i).getLocation(),
+                    "Warehouse " + i + " should use input location " + i);
+        }
+    }
+
+    @Test
+    void testConstructor_WarehouseInventoryQuantityMatchesFormula() {
+        List<Warehouse> warehouses = getWarehouses();
+        List<Item> items = getItems();
+        for (Warehouse warehouse : warehouses) {
+            for (Item item : items) {
+                int expectedQty = (int) (1_000_000 / item.getCost());
+                int actualQty = warehouse.getInventory().inventory.get(item);
+                assertEquals(expectedQty, actualQty,
+                        "Inventory quantity for " + item.getName() + " should be 1_000_000 / cost");
+            }
+        }
+    }
+
+    @Test
+    void testConstructor_CityGridContainsAllRoadEndpoints() {
+        Map<Location, List<Road>> cityGrid = getCityGrid();
+        for (Road road : getRoads()) {
+            assertTrue(cityGrid.containsKey(road.getFrom()), "cityGrid should contain road's from location");
+            assertTrue(cityGrid.containsKey(road.getTo()), "cityGrid should contain road's to location");
+            assertTrue(cityGrid.get(road.getFrom()).contains(road),
+                    "road's from location should reference this road");
+        }
+    }
+
+    @Test
+    void testShortestDistance_SameLocationReturnsZero() {
+        Location loc = getLocations().get(0);
+        Double distance = cityReplicaService.shortestDistanceBetweenTwoLocations(loc, loc);
+        assertEquals(0.0, distance);
+    }
+
+    @Test
+    void testShortestDistance_AdjacentChainPairEqualsRoadDistance() {
+        Location loc0 = getLocations().get(0);
+        Location loc1 = getLocations().get(1);
+        double expected = geoUtils.distance(loc0, loc1);
+        Double actual = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc1);
+        assertNotNull(actual);
+        assertEquals(expected, actual, 1e-9);
+    }
+
+    @Test
+    void testShortestDistance_TriangleInequality() {
+        Location loc0 = getLocations().get(0);
+        Location loc1 = getLocations().get(1);
+        Location loc2 = getLocations().get(2);
+
+        Double d01 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc1);
+        Double d12 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc1, loc2);
+        Double d02 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc2);
+
+        assertNotNull(d01);
+        assertNotNull(d12);
+        assertNotNull(d02);
+        assertTrue(d02 <= d01 + d12 + 1e-9, "Triangle inequality violated");
+    }
+
+    @Test
+    void testShortestDistance_Symmetry() {
+        Location loc0 = getLocations().get(0);
+        Location loc1 = getLocations().get(1);
+        Double d01 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc1);
+        Double d10 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc1, loc0);
+        assertEquals(d01, d10);
+    }
+
+    @Test
+    void testShortestDistance_UnreachableReturnsNull() {
+        Location isolatedLoc = new Location(0.0f, 0.0f);
+        Location loc0 = getLocations().get(0);
+        Double distance = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, isolatedLoc);
+        assertNull(distance);
+    }
+
+    @Test
+    void testShortestDistance_StateResetBetweenCalls() {
+        Location loc0 = getLocations().get(0);
+        Location loc1 = getLocations().get(1);
+        Double d1 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc1);
+        Double d2 = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, loc1);
+        assertEquals(d1, d2, "Consecutive calls should return identical results");
+    }
+
+    @Test
+    void testConstructor_SingleLocation_DoesNotHang() {
+        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
+        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
+        pairConstructor.setAccessible(true);
+
+        ArrayList<Object> itemsList = new ArrayList<>();
+        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
+
+        ArrayList<Object> locationsList = new ArrayList<>();
+        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
+
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
+                () -> new CityReplicaService(1, 1, itemsList, locationsList),
+                "Constructor with single location should not hang in infinite loop");
+    }
+
+    @Test
+    void testConstructor_TwoLocationsRoadsCntExceedsMax_DoesNotHang() {
+        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
+        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
+        pairConstructor.setAccessible(true);
+
+        ArrayList<Object> itemsList = new ArrayList<>();
+        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
+
+        ArrayList<Object> locationsList = new ArrayList<>();
+        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
+        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f));
+
+        assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
+                () -> new CityReplicaService(2, 1, itemsList, locationsList),
+                "Constructor with 2 locations and roads_cnt=2 should not hang (only 2 unique directed edges exist)");
+    }
+
+    @Test
+    void testConstructor_WarehouseCountExceedsLocations_ShouldNotCrash() {
+        Class<?> pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
+        Constructor<?> pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
+        pairConstructor.setAccessible(true);
+
+        ArrayList<Object> itemsList = new ArrayList<>();
+        itemsList.add(pairConstructor.newInstance("Item", 1.0f));
+
+        ArrayList<Object> locationsList = new ArrayList<>();
+        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f));
+        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f));
+
+        assertDoesNotThrow(() -> new CityReplicaService(3, 3, itemsList, locationsList),
+                "Constructor should handle warehouseCnt > locations.size() gracefully, not throw IndexOutOfBoundsException");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Item> getItems() {
+        return getField(cityReplicaService, "items");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Warehouse> getWarehouses() {
+        return getField(cityReplicaService, "warehouses");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Location> getLocations() {
+        return getField(cityReplicaService, "locations");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Road> getRoads() {
+        return getField(cityReplicaService, "roads");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Location, List<Road>> getCityGrid() {
+        return getField(cityReplicaService, "cityGrid");
+    }
+
+    private <T> T getField(Object object, String fieldName) {
+        try {
+            Field field = object.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (T) field.get(object);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to access field: " + fieldName, e);
+        }
+    }
+}
