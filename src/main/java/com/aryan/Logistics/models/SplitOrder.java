@@ -1,0 +1,17 @@
+package com.aryan.Logistics.models;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import java.util.Date;
+
+@Data
+@AllArgsConstructor
+public class SplitOrder {
+    public String id;
+    public Item item;
+    public Date deadline;
+    public Date orderCreated;
+    public Date orderDelivered;
+    public Customer orderedBy;
+}
