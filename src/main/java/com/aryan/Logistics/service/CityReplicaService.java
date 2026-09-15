@@ -4,6 +4,7 @@ import ch.qos.logback.core.joran.sanity.Pair;
 import com.aryan.Logistics.Utils.GeoUtils;
 import com.aryan.Logistics.models.*;
 import com.aryan.Logistics.Utils.DistancePair;
+import jakarta.validation.constraints.Null;
 
 import java.lang.reflect.Array;
 import java.util.*;
@@ -24,17 +25,17 @@ public class CityReplicaService {
     private Map<Location,Boolean> visited;
     private PriorityQueue<DistancePair> pq;
     private Map<Location,Double> dist;
-    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Float>> itm, ArrayList<Pair<Float,Float>> locs) {
+    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Double>> itm, ArrayList<Pair<Double,Double>> locs) {
         warehouseCnt = warehouse_cnt;
         int iter = 0;
         // create an item
-        for(Pair<String,Float> pair: itm) {
+        for(Pair<String,Double> pair: itm) {
             String item_id = "Item_" + iter;
             Item it = new Item(item_id,pair.first,pair.second);
             items.add(it);
         }
         // creating all locations
-        for(Pair<Float,Float> l: locs) {
+        for(Pair<Double,Double> l: locs) {
             Location lc = new Location(l.first,l.second);
             locations.add(lc);
         }
@@ -58,36 +59,46 @@ public class CityReplicaService {
             Location l1 = locations.get(i);
             Location l2 = locations.get(i+1);
             Double distance = geoUtils.distance(l1,l2);
-            Road road = new Road(roadId,l1,l2,distance,true,1.0);
+            Road road_from_to = new Road(roadId,l1,l2,distance,true,1.0);
+            Road road_to_from = new Road(roadId,l2,l1,distance,true,1.0);
             if (!cityGrid.containsKey(l1)) {
                 cityGrid.put(l1, new ArrayList<Road>());
             }
             if(!cityGrid.containsKey(l2)) {
                 cityGrid.put(l2, new ArrayList<Road>());
             }
-            cityGrid.get(l1).add(road);
-            cityGrid.get(l2).add(road);
-            roads.add(road);
-            uniqueRoads.add(road);
+            cityGrid.get(l1).add(road_from_to);
+            cityGrid.get(l2).add(road_to_from);
+            roads.add(road_from_to);
+            uniqueRoads.add(road_from_to);
         }
         while(uniqueRoads.size() < roads_cnt) {
             String roadId = "road_" + i;
             Random random = new Random();
-            Location l1 = locations.get(random.nextInt(locs.size()));
-            Location l2 = locations.get(random.nextInt(locs.size()));
-            Road road = new Road(roadId, l1, l2, geoUtils.distance(l1, l2), true, 1.0);
+            int size = locs.size();
+            if (size < 2) {
+                throw new IllegalArgumentException("Need at least 2 locations");
+            }
+            int i1 = random.nextInt(size);
+            int i2 = random.nextInt(size - 1);
+            if (i2 >= i1) {
+                i2++;  // shift to avoid i1
+            }
+            Location l1 = locations.get(i1);
+            Location l2 = locations.get(i2);
+            Double distance = geoUtils.distance(l1, l2);
+            Road road_from_to = new Road(roadId, l1, l2, distance, true, 1.0);
+            Road road_to_from = new Road(roadId, l2, l1, distance, true, 1.0);
             if (!cityGrid.containsKey(l1)) {
                 cityGrid.put(l1, new ArrayList<Road>());
             }
             if(!cityGrid.containsKey(l2)) {
                 cityGrid.put(l2, new ArrayList<Road>());
             }
-            cityGrid.get(l1).add(road);
-            road.from = l2;
-            road.to = l1;
-            cityGrid.get(l2).add(road);
-            roads.add(road);
-            uniqueRoads.add(road);
+            cityGrid.get(l1).add(road_from_to);
+            cityGrid.get(l2).add(road_to_from);
+            roads.add(road_from_to);
+            uniqueRoads.add(road_from_to);
         }
     }
     public Double shortestDistanceBetweenTwoLocations(Location start,Location end) {
@@ -101,13 +112,14 @@ public class CityReplicaService {
             visited.put(top.location,true);
             for(Road rd:cityGrid.get(top.location)) {
                 if(rd.open) {
-                    if(!visited.get(rd.to)) {
-                        if(dist.containsKey(rd.to)) {
-                            Double dt = rd.distance + dist.get(rd.from);
-                            if(dist.get(rd.to) > dt) {
-                                dist.put(rd.to,dt);
-                                pq.add(new DistancePair(dt,rd.to));
-                            }
+                    if(!visited.containsKey(rd.to)) {
+                        if(!dist.containsKey(rd.to)) {
+                            dist.put(rd.to,Double.MAX_VALUE);
+                        }
+                        Double dt = rd.distance + dist.get(rd.from);
+                        if(dist.get(rd.to) > dt) {
+                            dist.put(rd.to,dt);
+                            pq.add(new DistancePair(dt,rd.to));
                         }
                     }
                 }

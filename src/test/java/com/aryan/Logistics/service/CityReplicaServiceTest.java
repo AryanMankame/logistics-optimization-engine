@@ -134,7 +134,7 @@ class CityReplicaServiceTest {
         for (Warehouse warehouse : warehouses) {
             for (Item item : items) {
                 int expectedQty = (int) (1_000_000 / item.getCost());
-                int actualQty = warehouse.getInventory().inventory.get(item);
+                int actualQty = warehouse.getInventory().checkQuantity(item);
                 assertEquals(expectedQty, actualQty,
                         "Inventory quantity for " + item.getName() + " should be 1_000_000 / cost");
             }
@@ -196,7 +196,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testShortestDistance_UnreachableReturnsNull() {
-        Location isolatedLoc = new Location(0.0f, 0.0f);
+        Location isolatedLoc = new Location(0.0, 0.0);
         Location loc0 = getLocations().get(0);
         Double distance = cityReplicaService.shortestDistanceBetweenTwoLocations(loc0, isolatedLoc);
         assertNull(distance);

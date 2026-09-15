@@ -8,5 +8,6 @@ import lombok.Data;
 public class Item {
     public String id;
     public String name;
-    public Float cost;
+    public Double cost;
+    public Double weight;
 }

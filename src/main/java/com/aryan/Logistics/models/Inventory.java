@@ -5,7 +5,7 @@ import java.util.Map;
 
 
 public class Inventory {
-    public Map<Item,Integer>inventory = new HashMap<>();
+    private Map<Item,Integer>inventory = new HashMap<>();
     public void subItem(Item item, Integer count) {
         inventory.computeIfPresent(item,(k,v) -> v >= count ? v-count : null);
     }
@@ -15,5 +15,11 @@ public class Inventory {
     public void addItem(Item item,Integer count) {
         inventory.putIfAbsent(item,0);
         inventory.computeIfPresent(item,(k,v) -> v+count);
+    }
+    public int checkQuantity(Item item) {
+        if(inventory.containsKey(item)) {
+            return inventory.get(item);
+        }
+        return 0;
     }
 }

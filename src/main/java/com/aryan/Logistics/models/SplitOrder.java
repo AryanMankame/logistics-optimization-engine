@@ -10,6 +10,7 @@ import java.util.Date;
 public class SplitOrder {
     public String id;
     public Item item;
+    public Integer quantity;
     public Date deadline;
     public Date orderCreated;
     public Date orderDelivered;

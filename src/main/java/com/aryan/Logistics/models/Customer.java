@@ -8,5 +8,5 @@ import java.util.ArrayList;
 public class Customer {
     public String id;
     public String name;
-    public Location Location;
+    public Location location;
 }
