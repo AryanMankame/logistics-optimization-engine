@@ -19,7 +19,7 @@ public class OrderHandlerService {
         ArrayList<SplitOrder> split_orders = new ArrayList<>();
         for(Pair<Integer,Item> iter:order.itemsRequested) {
             Item it = iter.getRight();
-            SplitOrder ord = new SplitOrder(order.id + itr.toString(),it,iter.getLeft(),order.deadline,order.orderCreated,order.orderDelivered,order.orderedBy);
+            SplitOrder ord = new SplitOrder(order.id + itr.toString(),it,iter.getLeft(),order.deadline,order.orderCreated,order.orderDelivered,order.orderedBy,order);
             split_orders.add(ord);
             itr += 1;
         }
@@ -46,6 +46,13 @@ public class OrderHandlerService {
 
     public boolean isOrderCompleted(Order order) {
         return orderStatus.containsKey(order);
+    }
+
+    public boolean completedSplitOrder(SplitOrder split_order) {
+        if(orderStatus.containsKey(split_order.partOf)) {
+            return orderStatus.get(split_order.partOf).remove(split_order);
+        }
+        return false;
     }
 
 }

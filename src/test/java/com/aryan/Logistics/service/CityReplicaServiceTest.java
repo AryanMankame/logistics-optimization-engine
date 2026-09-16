@@ -5,10 +5,10 @@ import com.aryan.Logistics.models.Location;
 import com.aryan.Logistics.models.Road;
 import com.aryan.Logistics.models.Warehouse;
 import com.aryan.Logistics.Utils.GeoUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,40 +20,34 @@ class CityReplicaServiceTest {
 
     private CityReplicaService cityReplicaService;
     private GeoUtils geoUtils;
-    private Class<?> pairClass;
-    private Constructor<?> pairConstructor;
 
     @BeforeEach
     void setUp() throws Exception {
-        pairClass = Class.forName("ch.qos.logback.core.joran.sanity.Pair");
-        pairConstructor = pairClass.getDeclaredConstructor(Object.class, Object.class);
-        pairConstructor.setAccessible(true);
+        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = new ArrayList<>();
+        itemsList.add(Pair.of("Apple", Pair.of(1.5, 1.0)));
+        itemsList.add(Pair.of("Banana", Pair.of(0.8, 0.5)));
+        itemsList.add(Pair.of("Orange", Pair.of(2.0, 1.2)));
 
-        ArrayList itemsList = new ArrayList();
-        itemsList.add(pairConstructor.newInstance("Apple", 1.5f));
-        itemsList.add(pairConstructor.newInstance("Banana", 0.8f));
-        itemsList.add(pairConstructor.newInstance("Orange", 2.0f));
-
-        ArrayList locationsList = new ArrayList();
-        locationsList.add(pairConstructor.newInstance(12.9716f, 77.5946f)); // Bangalore
-        locationsList.add(pairConstructor.newInstance(13.0827f, 80.2707f)); // Chennai
-        locationsList.add(pairConstructor.newInstance(19.0760f, 72.8777f)); // Mumbai
-        locationsList.add(pairConstructor.newInstance(28.7041f, 77.1025f)); // Delhi
+        ArrayList<Pair<Double, Double>> locationsList = new ArrayList<>();
+        locationsList.add(Pair.of(12.9716, 77.5946)); // Bangalore
+        locationsList.add(Pair.of(13.0827, 80.2707)); // Chennai
+        locationsList.add(Pair.of(19.0760, 72.8777)); // Mumbai
+        locationsList.add(Pair.of(28.7041, 77.1025)); // Delhi
 
         cityReplicaService = new CityReplicaService(5, 2, itemsList, locationsList);
         geoUtils = new GeoUtils();
     }
 
-    private ArrayList makeItemsList() throws Exception {
-        ArrayList list = new ArrayList();
-        list.add(pairConstructor.newInstance("Item", 1.0f));
+    private ArrayList<Pair<String, Pair<Double, Double>>> makeItemsList() {
+        ArrayList<Pair<String, Pair<Double, Double>>> list = new ArrayList<>();
+        list.add(Pair.of("Item", Pair.of(1.0, 1.0)));
         return list;
     }
 
-    private ArrayList makeLocationsList(float... coords) throws Exception {
-        ArrayList list = new ArrayList();
+    private ArrayList<Pair<Double, Double>> makeLocationsList(double... coords) {
+        ArrayList<Pair<Double, Double>> list = new ArrayList<>();
         for (int i = 0; i < coords.length; i += 2) {
-            list.add(pairConstructor.newInstance(coords[i], coords[i + 1]));
+            list.add(Pair.of(coords[i], coords[i + 1]));
         }
         return list;
     }
@@ -75,10 +69,9 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_CreatesAtLeastChainRoads() {
-        // Chain creates (n-1) forward roads; random adds (roads_cnt - (n-1)) more forward roads
         int n = getLocations().size();
         int minChainRoads = n - 1;
-        int expectedMinRoads = minChainRoads + Math.max(0, 5 - minChainRoads); // roads_cnt=5
+        int expectedMinRoads = minChainRoads + Math.max(0, 5 - minChainRoads);
         assertTrue(getRoads().size() >= expectedMinRoads,
                 "Should have at least chain roads + random roads: " + expectedMinRoads);
     }
@@ -102,7 +95,6 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_EveryRoadHasReverseInCityGrid() {
-        // Reverse roads exist in cityGrid, not necessarily in roads list
         Map<Location, List<Road>> cityGrid = getCityGrid();
         for (Road road : getRoads()) {
             Location from = road.getFrom();
@@ -214,9 +206,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_SingleLocation_ThrowsException() throws Exception {
-        ArrayList itemsList = makeItemsList();
-        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f);
+    void testConstructor_SingleLocation_ThrowsException() {
+        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946);
 
         assertThrows(IllegalArgumentException.class,
                 () -> new CityReplicaService(1, 1, itemsList, locationsList),
@@ -224,9 +216,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_TwoLocations_Completes() throws Exception {
-        ArrayList itemsList = makeItemsList();
-        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f, 13.0827f, 80.2707f);
+    void testConstructor_TwoLocations_Completes() {
+        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
 
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
                 () -> new CityReplicaService(2, 1, itemsList, locationsList),
@@ -234,9 +226,9 @@ class CityReplicaServiceTest {
     }
 
     @Test
-    void testConstructor_WarehouseCountExceedsLocations_ThrowsIndexOutOfBounds() throws Exception {
-        ArrayList itemsList = makeItemsList();
-        ArrayList locationsList = makeLocationsList(12.9716f, 77.5946f, 13.0827f, 80.2707f);
+    void testConstructor_WarehouseCountExceedsLocations_ThrowsIndexOutOfBounds() {
+        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
 
         assertThrows(IndexOutOfBoundsException.class,
                 () -> new CityReplicaService(3, 3, itemsList, locationsList),

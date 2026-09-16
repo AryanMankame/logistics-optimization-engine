@@ -1,6 +1,7 @@
 package com.aryan.Logistics.service;
 
 import com.aryan.Logistics.models.Item;
+import com.aryan.Logistics.models.Location;
 import com.aryan.Logistics.models.Warehouse;
 
 import java.util.ArrayList;
@@ -38,6 +39,14 @@ public class WarehouseService {
         } catch (Exception e) {
             System.out.println("ERROR => " + e.getMessage());
             return false;
+        }
+    }
+    public Location getWarehouseLocation(int warehouse_id) {
+        try {
+            return warehouses.get(warehouse_id).location;
+        } catch (Exception e) {
+            System.out.println("ERROR ==> " + e.getMessage());
+            return null;
         }
     }
 }

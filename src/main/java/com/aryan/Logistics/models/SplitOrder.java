@@ -15,4 +15,5 @@ public class SplitOrder {
     public Date orderCreated;
     public Date orderDelivered;
     public Customer orderedBy;
+    public Order partOf;
 }

@@ -1,6 +1,6 @@
 package com.aryan.Logistics.service;
 
-import ch.qos.logback.core.joran.sanity.Pair;
+import org.apache.commons.lang3.tuple.Pair;
 import com.aryan.Logistics.Utils.GeoUtils;
 import com.aryan.Logistics.models.*;
 import com.aryan.Logistics.Utils.DistancePair;
@@ -25,18 +25,20 @@ public class CityReplicaService {
     private Map<Location,Boolean> visited;
     private PriorityQueue<DistancePair> pq;
     private Map<Location,Double> dist;
-    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Double>> itm, ArrayList<Pair<Double,Double>> locs) {
+    public Date currTime;
+    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Pair<Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs) {
         warehouseCnt = warehouse_cnt;
+        currTime = new Date();
         int iter = 0;
         // create an item
-        for(Pair<String,Double> pair: itm) {
+        for(Pair<String,Pair<Double,Double>> pair: itm) {
             String item_id = "Item_" + iter;
-            Item it = new Item(item_id,pair.first,pair.second);
+            Item it = new Item(item_id,pair.getLeft(),pair.getRight().getLeft(),pair.getRight().getRight());
             items.add(it);
         }
         // creating all locations
         for(Pair<Double,Double> l: locs) {
-            Location lc = new Location(l.first,l.second);
+            Location lc = new Location(l.getLeft(),l.getRight());
             locations.add(lc);
         }
         // creating warehouses
@@ -101,6 +103,7 @@ public class CityReplicaService {
             uniqueRoads.add(road_from_to);
         }
     }
+
     public Double shortestDistanceBetweenTwoLocations(Location start,Location end) {
         visited = new HashMap<Location,Boolean>();
         pq = new PriorityQueue<DistancePair>();
