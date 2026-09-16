@@ -10,9 +10,11 @@ import java.util.*;
 public class OrderHandlerService {
     private Queue<Order> orders;
     private HashMap<Order,ArrayList<SplitOrder>> orderStatus;
-    OrderHandlerService() {
+    private ClusterService clusterService;
+    OrderHandlerService(ClusterService cluster_service) {
         orders = new LinkedList<>();
         orderStatus = new HashMap<>();
+        clusterService = cluster_service;
     }
     private static ArrayList<SplitOrder> splitOrders(Order order) {
         Integer itr = 0;
@@ -34,7 +36,7 @@ public class OrderHandlerService {
             ArrayList<SplitOrder> split_orders = splitOrders(order);
             // pass these split orders one by one to the cluster service which will add them to clusters
             for (SplitOrder split_order : split_orders) {
-                continue;
+                clusterService.addOrderToCluster(split_order);
             }
             orderStatus.put(order, split_orders);
             return true;

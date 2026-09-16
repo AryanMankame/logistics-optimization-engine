@@ -15,9 +15,9 @@ public class CityReplicaService {
     // warehouse -> create n warehouse objects with different locations -> initialize its inventory -> have inventory to include randomly at least 70% of all items in its inventory.
     // vehicle -> create n vehicles
     // Roads -> create N roads
+    private WarehouseService warehouseService;
     private Integer warehouseCnt;
     private ArrayList<Item> items = new ArrayList<Item>();
-    private ArrayList<Warehouse> warehouses = new ArrayList<Warehouse>();
     private ArrayList<Location> locations = new ArrayList<Location>();
     private static GeoUtils geoUtils = new GeoUtils();
     private ArrayList<Road> roads = new ArrayList<Road>();
@@ -26,8 +26,9 @@ public class CityReplicaService {
     private PriorityQueue<DistancePair> pq;
     private Map<Location,Double> dist;
     public Date currTime;
-    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Pair<Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs) {
+    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Pair<Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs,WarehouseService warehouse_service) {
         warehouseCnt = warehouse_cnt;
+        warehouseService = warehouse_service;
         currTime = new Date();
         int iter = 0;
         // create an item
@@ -43,14 +44,7 @@ public class CityReplicaService {
         }
         // creating warehouses
         for(int i=0;i<warehouseCnt;i++) {
-            Inventory inventory = new Inventory();
-            String warehouseId = "Warehouse_" + i;
-            int amountEachItem = 1000000;
-            for(Item it:items) {
-                inventory.addItem(it,(int) (amountEachItem/ it.getCost()));
-            }
-            Warehouse wh = new Warehouse(warehouseId,locations.get(i),inventory);
-            warehouses.add(wh);
+            warehouseService.addWarehouse(i,items,locations.get(i));
         }
         // building roads -> creating a city grid.
         // first create at least loc-1 roads

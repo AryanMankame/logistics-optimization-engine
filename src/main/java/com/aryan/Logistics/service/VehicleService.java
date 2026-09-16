@@ -15,10 +15,9 @@ public class VehicleService {
     public boolean addVehicle(Date curr,Vehicle vh) {
         return vehicles.add(Pair.of(curr,vh));
     }
-    public Vehicle getVehicle() {
+    public Vehicle getVehicle(Date currentTime) {
         if(!vehicles.isEmpty()) {
-            Date nowTime = new Date();
-            if(vehicles.peek().getRight().outForDeliveryUntil.compareTo(nowTime) <= 0) {
+            if(vehicles.peek().getRight().outForDeliveryUntil.compareTo(currentTime) <= 0) {
                 return vehicles.poll().getRight();
             }
         }

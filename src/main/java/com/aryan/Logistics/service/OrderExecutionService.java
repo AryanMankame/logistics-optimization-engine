@@ -24,23 +24,23 @@ public class OrderExecutionService {
         // iterate over given cluster -> get order
         // fill the vehicle and push back to vehicle service with time needed to delivery set
         try {
-            Vehicle vehicle = vehicleService.getVehicle();
+            Vehicle vehicle = vehicleService.getVehicle(cityReplicaService.currTime);
             if(vehicle == null) return ;
             Double itemsWeight = 0.0;
             Double mxTime = Double.MAX_VALUE;
             int ordersAdded = 0;
             while(itemsWeight <= vehicle.capacity) {
-                SplitOrder order = clusterService.getOrderFromCluster(cluster_number);
+                SplitOrder order = clusterService.peekOrderFromCluster(cluster_number);
                 if (order == null) break;
+                if (itemsWeight + order.item.weight > vehicle.capacity) break;
+                order = clusterService.getOrderFromCluster(cluster_number);
                 itemsWeight += order.item.weight;
                 Location warehouseLocation = warehouseService.getWarehouseLocation(cluster_number);
-                if(itemsWeight <= vehicle.capacity) {
-                    ordersAdded += 1;
-                    Double timeTaken = (cityReplicaService.shortestDistanceBetweenTwoLocations(warehouseLocation,order.orderedBy.location)) / vehicle.averageSpeed;
-                    mxTime = Math.max(mxTime,timeTaken);
-                    if(!warehouseService.subtractItemFromWarehouse(cluster_number,order.item,order.quantity)) return ;
-                    orderHandlerService.completedSplitOrder(order);
-                }
+                ordersAdded += 1;
+                Double timeTaken = (cityReplicaService.shortestDistanceBetweenTwoLocations(warehouseLocation,order.orderedBy.location)) / vehicle.averageSpeed;
+                mxTime = Math.max(mxTime,timeTaken);
+                if(!warehouseService.subtractItemFromWarehouse(cluster_number,order.item,order.quantity)) return ;
+                orderHandlerService.completedSplitOrder(order);
             }
             int additionalMillis =
                     (int) ((mxTime * 60 + ordersAdded * 300) * 60 * 1000);

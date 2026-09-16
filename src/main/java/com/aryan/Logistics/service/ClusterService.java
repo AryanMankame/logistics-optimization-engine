@@ -18,11 +18,19 @@ public class ClusterService {
 
     ClusterService(int number_of_clusters,ArrayList<Location>locations) {
         orderClusters = new ArrayList<>();
+        clusterCentroid = new ArrayList<>();
         for(int i=0;i<number_of_clusters;i++) {
             PriorityQueue<Pair<Date,SplitOrder>> pq = new PriorityQueue<>();
             orderClusters.add(pq);
             clusterCentroid.add(locations.get(i));
         }
+    }
+
+    public SplitOrder peekOrderFromCluster(int cluster_number) {
+        if (orderClusters.get(cluster_number) != null && !orderClusters.get(cluster_number).isEmpty()) {
+            return orderClusters.get(cluster_number).peek().getRight();
+        }
+        return null;
     }
 
     public boolean addOrderToCluster(SplitOrder order) {
@@ -56,5 +64,9 @@ public class ClusterService {
         return null;
     }
 
-
+    public void addClutser(Location location) {
+        PriorityQueue<Pair<Date,SplitOrder>> pq = new PriorityQueue<>();
+        orderClusters.add(pq);
+        clusterCentroid.add(location);
+    }
 }

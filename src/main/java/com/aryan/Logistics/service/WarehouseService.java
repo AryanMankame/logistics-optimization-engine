@@ -1,5 +1,6 @@
 package com.aryan.Logistics.service;
 
+import com.aryan.Logistics.models.Inventory;
 import com.aryan.Logistics.models.Item;
 import com.aryan.Logistics.models.Location;
 import com.aryan.Logistics.models.Warehouse;
@@ -11,9 +12,7 @@ public class WarehouseService {
     WarehouseService() {
         warehouses = new ArrayList<>();
     }
-    public boolean addWarehouse(Warehouse warehouse) {
-        return warehouses.add(warehouse);
-    }
+
     public Integer checkItemQuantity(int warehouse_id, Item item) {
         try{
             return warehouses.get(warehouse_id).getInventory().checkQuantity(item);
@@ -49,4 +48,16 @@ public class WarehouseService {
             return null;
         }
     }
+
+    public void addWarehouse(int id,ArrayList<Item> items,Location location) {
+        Inventory inventory = new Inventory();
+        String warehouseId = "Warehouse_" + id;
+        int amountEachItem = 1000000;
+        for(Item it:items) {
+            inventory.addItem(it,(int) (amountEachItem/ it.getCost()));
+        }
+        Warehouse wh = new Warehouse(warehouseId,location,inventory);
+        warehouses.add(wh);
+    }
+
 }

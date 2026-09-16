@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CityReplicaServiceTest {
 
     private CityReplicaService cityReplicaService;
+    private WarehouseService warehouseService;
     private GeoUtils geoUtils;
 
     @BeforeEach
@@ -34,7 +35,8 @@ class CityReplicaServiceTest {
         locationsList.add(Pair.of(19.0760, 72.8777)); // Mumbai
         locationsList.add(Pair.of(28.7041, 77.1025)); // Delhi
 
-        cityReplicaService = new CityReplicaService(5, 2, itemsList, locationsList);
+        warehouseService = new WarehouseService();
+        cityReplicaService = new CityReplicaService(5, 2, itemsList, locationsList, warehouseService);
         geoUtils = new GeoUtils();
     }
 
@@ -59,7 +61,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_CreatesCorrectNumberOfWarehouses() {
-        assertEquals(2, getWarehouses().size());
+        assertEquals(2, getWarehouses(warehouseService).size());
     }
 
     @Test
@@ -111,7 +113,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_WarehousesUseDistinctLocationsFromInput() {
-        List<Warehouse> warehouses = getWarehouses();
+        List<Warehouse> warehouses = getWarehouses(warehouseService);
         List<Location> locations = getLocations();
         for (int i = 0; i < warehouses.size(); i++) {
             assertEquals(locations.get(i), warehouses.get(i).getLocation(),
@@ -121,7 +123,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_WarehouseInventoryQuantityMatchesFormula() {
-        List<Warehouse> warehouses = getWarehouses();
+        List<Warehouse> warehouses = getWarehouses(warehouseService);
         List<Item> items = getItems();
         for (Warehouse warehouse : warehouses) {
             for (Item item : items) {
@@ -209,9 +211,10 @@ class CityReplicaServiceTest {
     void testConstructor_SingleLocation_ThrowsException() {
         ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946);
+        WarehouseService ws = new WarehouseService();
 
         assertThrows(IllegalArgumentException.class,
-                () -> new CityReplicaService(1, 1, itemsList, locationsList),
+                () -> new CityReplicaService(1, 1, itemsList, locationsList, ws),
                 "Constructor with single location should throw IllegalArgumentException");
     }
 
@@ -219,9 +222,10 @@ class CityReplicaServiceTest {
     void testConstructor_TwoLocations_Completes() {
         ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
+        WarehouseService ws = new WarehouseService();
 
         assertTimeoutPreemptively(java.time.Duration.ofSeconds(2),
-                () -> new CityReplicaService(2, 1, itemsList, locationsList),
+                () -> new CityReplicaService(2, 1, itemsList, locationsList, ws),
                 "Constructor with 2 locations should complete");
     }
 
@@ -229,9 +233,10 @@ class CityReplicaServiceTest {
     void testConstructor_WarehouseCountExceedsLocations_ThrowsIndexOutOfBounds() {
         ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
+        WarehouseService ws = new WarehouseService();
 
         assertThrows(IndexOutOfBoundsException.class,
-                () -> new CityReplicaService(3, 3, itemsList, locationsList),
+                () -> new CityReplicaService(3, 3, itemsList, locationsList, ws),
                 "Constructor with warehouseCnt > locations.size() throws IndexOutOfBoundsException");
     }
 
@@ -241,8 +246,8 @@ class CityReplicaServiceTest {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Warehouse> getWarehouses() {
-        return getField(cityReplicaService, "warehouses");
+    private List<Warehouse> getWarehouses(WarehouseService ws) {
+        return getField(ws, "warehouses");
     }
 
     @SuppressWarnings("unchecked")
