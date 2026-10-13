@@ -1,6 +1,7 @@
 package com.aryan.Logistics.service;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import com.aryan.Logistics.Utils.GeoUtils;
 import com.aryan.Logistics.models.*;
 import com.aryan.Logistics.Utils.DistancePair;
@@ -25,26 +26,40 @@ public class CityReplicaService {
     private Map<Location,Boolean> visited;
     private PriorityQueue<DistancePair> pq;
     private Map<Location,Double> dist;
+    private static java.util.List<Integer> defaultIndices(int n) {
+        java.util.List<Integer> out = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) out.add(i);
+        return out;
+    }
     public Date currTime;
-    CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Pair<Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs,WarehouseService warehouse_service) {
-        warehouseCnt = warehouse_cnt;
+    /** Diagnostics: shortest-path call count and total millis (single-threaded sim). */
+    public long shortestPathCalls = 0;
+    public long shortestPathMillis = 0;
+    public CityReplicaService(int roads_cnt,int warehouse_cnt, ArrayList<Pair<String,Triple<Double,Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs,WarehouseService warehouse_service) {
+        this(roads_cnt, defaultIndices(warehouse_cnt), itm, locs, warehouse_service);
+    }
+    public CityReplicaService(int roads_cnt,java.util.List<Integer> warehouse_indices, ArrayList<Pair<String,Triple<Double,Double,Double>>> itm, ArrayList<Pair<Double,Double>> locs,WarehouseService warehouse_service) {
+        warehouseCnt = warehouse_indices.size();
         warehouseService = warehouse_service;
         currTime = new Date();
         int iter = 0;
-        // create an item
-        for(Pair<String,Pair<Double,Double>> pair: itm) {
+        // create an item (triple = cost, weight, selling price)
+        for(Pair<String,Triple<Double,Double,Double>> pair: itm) {
             String item_id = "Item_" + iter;
-            Item it = new Item(item_id,pair.getLeft(),pair.getRight().getLeft(),pair.getRight().getRight());
+            Triple<Double,Double,Double> vals = pair.getRight();
+            Item it = new Item(item_id,pair.getLeft(),vals.getLeft(),vals.getMiddle(),vals.getRight());
             items.add(it);
+            iter++;
         }
         // creating all locations
         for(Pair<Double,Double> l: locs) {
             Location lc = new Location(l.getLeft(),l.getRight());
             locations.add(lc);
         }
-        // creating warehouses
-        for(int i=0;i<warehouseCnt;i++) {
-            warehouseService.addWarehouse(i,items,locations.get(i));
+        // creating warehouses at the given location indices (ids follow creation order)
+        int whId = 0;
+        for (int locIdx : warehouse_indices) {
+            warehouseService.addWarehouse(whId++,items,locations.get(locIdx));
         }
         // building roads -> creating a city grid.
         // first create at least loc-1 roads
@@ -95,10 +110,14 @@ public class CityReplicaService {
             cityGrid.get(l2).add(road_to_from);
             roads.add(road_from_to);
             uniqueRoads.add(road_from_to);
+            i++;
         }
     }
 
     public Double shortestDistanceBetweenTwoLocations(Location start,Location end) {
+        long t0 = System.nanoTime();
+        shortestPathCalls++;
+        try {
         visited = new HashMap<Location,Boolean>();
         pq = new PriorityQueue<DistancePair>();
         dist = new HashMap<Location,Double>();
@@ -123,5 +142,16 @@ public class CityReplicaService {
             }
         }
         return dist.get(end);
+        } finally {
+            shortestPathMillis += (System.nanoTime() - t0) / 1_000_000;
+        }
+    }
+
+    public ArrayList<Road> getRoads() {
+        return roads;
+    }
+
+    public ArrayList<Location> getLocations() {
+        return locations;
     }
 }

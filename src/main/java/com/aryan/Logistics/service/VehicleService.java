@@ -3,13 +3,15 @@ package com.aryan.Logistics.service;
 import com.aryan.Logistics.models.Vehicle;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
 public class VehicleService {
     private PriorityQueue<Pair<Date,Vehicle>>vehicles;
-    VehicleService() {
+    public VehicleService() {
         vehicles = new PriorityQueue<>();
     }
     public boolean addVehicle(Date curr,Vehicle vh) {
@@ -22,5 +24,13 @@ public class VehicleService {
             }
         }
         return null;
+    }
+
+    public List<Vehicle> allVehicles() {
+        List<Vehicle> result = new ArrayList<>();
+        for (Pair<Date, Vehicle> pair : vehicles) {
+            result.add(pair.getRight());
+        }
+        return result;
     }
 }

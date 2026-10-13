@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scenario Setup — Logistics Analytics</title>
+<style>
+  :root { --bg:#0f1420; --card:#1a2233; --card2:#212b40; --text:#e8ecf4; --muted:#8b96ab; --accent:#4f8cff; --green:#2ecc71; --red:#e74c3c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; padding:24px; max-width:760px; margin:0 auto; }
+  h1 { font-size:24px; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  .card { background:var(--card); border-radius:10px; padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin-bottom:12px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
+  .field { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .field label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .field input { background:var(--card2); color:var(--text); border:1px solid #2a3550; border-radius:6px; padding:9px 12px; font-size:14px; width:100%; }
+  .field input:focus { outline:none; border-color:var(--accent); }
+  .hint { font-size:11px; color:var(--muted); }
+  button { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:12px 28px; font-size:15px; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:wait; }
+  #error { color:var(--red); font-size:13px; margin-top:12px; min-height:20px; }
+  #progress { margin-top:16px; display:none; }
+  #bar { background:var(--card2); border-radius:6px; height:12px; overflow:hidden; }
+  #fill { background:var(--green); height:100%; width:0%; transition:width .3s; }
+  #plabel { font-size:13px; color:var(--muted); margin-top:6px; }
+  #done { margin-top:16px; display:none; }
+  #done a { color:var(--green); font-size:16px; font-weight:700; }
+</style>
+</head>
+<body>
+<h1>Scenario Setup</h1>
+<div class="sub">Tune the business levers, run the simulation, then open the dashboard.</div>
+
+<div class="card">
+  <h2>Network</h2>
+  <div class="row">
+    <div class="field"><label>Warehouses (count)</label><input id="warehouseCount" type="number" min="1" max="10000"><div class="hint">Evenly spread over the location pool.</div></div>
+    <div class="field"><label>Vehicles (count)</label><input id="vehicleCount" type="number" min="1" max="10000"><div class="hint">First N of the configured types, cycling.</div></div>
+    <div class="field"><label>Customers (count)</label><input id="customerCount" type="number" min="1" max="10000"><div class="hint">Evenly spread, skipping warehouses.</div></div>
+    <div class="field"><label>Warehouse maintenance ₹ / day</label><input id="maintenancePerDay" type="number" min="0" step="100"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Demand &amp; Money</h2>
+  <div class="row">
+    <div class="field"><label>Orders per day (rough)</label><input id="targetOrdersPerDay" type="number" min="1" max="10000"><div class="hint">Spread across morning / afternoon / evening.</div></div>
+    <div class="field"><label>Target return on cost %</label><input id="targetReturnOnCost" type="number" min="0" max="500" step="0.5"><div class="hint">e.g. 12 = net profit 12% of total cost.</div></div>
+    <div class="field"><label>Delivery fee ₹ / km</label><input id="deliveryFeePerKm" type="number" min="0" step="0.5"><div class="hint" id="feeHint">0 = free delivery.</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Period</h2>
+  <div class="row">
+    <div class="field"><label>Start date</label><input id="startDate" type="date"></div>
+    <div class="field"><label>End date</label><input id="endDate" type="date"></div>
+  </div>
+</div>
+
+<button id="run">Run simulation</button>
+<div id="error"></div>
+<div id="progress"><div id="bar"><div id="fill"></div></div><div id="plabel"></div></div>
+<div id="done"></div>
+
+<script>
+const ids = ['warehouseCount','vehicleCount','customerCount','maintenancePerDay','targetOrdersPerDay','targetReturnOnCost','deliveryFeePerKm','startDate','endDate'];
+fetch('api/scenario/defaults').then(r => r.json()).then(d => {
+  document.getElementById('warehouseCount').value = d.warehouseCount;
+  document.getElementById('vehicleCount').value = d.vehicleCount;
+  document.getElementById('customerCount').value = d.customerCount;
+  document.getElementById('maintenancePerDay').value = d.maintenancePerDay;
+  document.getElementById('targetOrdersPerDay').value = d.targetOrdersPerDay;
+  document.getElementById('targetReturnOnCost').value = d.targetReturnOnCost * 100;
+  document.getElementById('deliveryFeePerKm').value = d.deliveryFeePerKm;
+  document.getElementById('startDate').value = d.startDate;
+  document.getElementById('endDate').value = d.endDate;
+  window.__fuelFloor = d.fuelLitersPerKm * d.fuelPricePerLiter;
+  document.getElementById('feeHint').textContent =
+    'Must clear ~₹' + window.__fuelFloor.toFixed(2) + '/km fuel at current settings; 0 = free delivery. The dashboard tells you what hits your target.';
+}).catch(() => { document.getElementById('error').textContent = 'Could not load defaults — is the app running?'; });
+
+function val(id) { const v = document.getElementById(id).value; return v === '' ? null : v; }
+function num(id) { const v = val(id); return v === null ? null : Number(v); }
+
+document.getElementById('run').addEventListener('click', async () => {
+  document.getElementById('error').textContent = '';
+  document.getElementById('done').style.display = 'none';
+  const body = {
+    warehouseCount: num('warehouseCount'), vehicleCount: num('vehicleCount'), customerCount: num('customerCount'),
+    maintenancePerDay: num('maintenancePerDay'), targetOrdersPerDay: num('targetOrdersPerDay'),
+    deliveryFeePerKm: num('deliveryFeePerKm'), startDate: val('startDate'), endDate: val('endDate')
+  };
+  const pct = num('targetReturnOnCost');
+  body.targetReturnOnCost = pct === null ? null : pct / 100;
+  const btn = document.getElementById('run');
+  btn.disabled = true;
+  try {
+    const res = await fetch('api/scenario/run', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!res.ok) { const t = await res.text(); throw new Error('Rejected: ' + t); }
+    const { jobId } = await res.json();
+    document.getElementById('progress').style.display = 'block';
+    const timer = setInterval(async () => {
+      const s = await (await fetch('api/scenario/status/' + jobId)).json();
+      if (s.totalDays > 0) {
+        document.getElementById('fill').style.width = (100 * s.dayDone / s.totalDays) + '%';
+        document.getElementById('plabel').textContent = 'Day ' + s.dayDone + ' of ' + s.totalDays;
+      } else {
+        document.getElementById('plabel').textContent = 'Starting…';
+      }
+      if (s.state === 'DONE') {
+        clearInterval(timer); btn.disabled = false;
+        const file = s.dashboard.split('/').pop();
+        document.getElementById('done').style.display = 'block';
+        document.getElementById('done').innerHTML = '<a target="_blank" href="api/scenario/artifact/' + jobId + '/' + file + '">Open dashboard →</a>';
+      } else if (s.state === 'FAILED') {
+        clearInterval(timer); btn.disabled = false;
+        document.getElementById('error').textContent = 'Run failed: ' + s.error;
+      }
+    }, 2000);
+  } catch (e) {
+    btn.disabled = false;
+    document.getElementById('error').textContent = e.message;
+  }
+});
+</script>
+</body>
+</html>

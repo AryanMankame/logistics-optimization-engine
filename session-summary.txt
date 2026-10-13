@@ -1,0 +1,66 @@
+LOGISTICS SIMULATION — SESSION SUMMARY
+Date: 2026-10-01 | Branch: feature/simulation | Tests: 20/20 passing
+
+=== COMPLETED (Steps 1-8) ===
+1. simulation.json — 1000 Mumbai locations (20 wh + 980 customer), 300 items,
+   200 customers, 50 vehicles, 20 clusters, time-slot order rates, 7 random-event
+   probabilities. 30-day range 2025-09-15→2025-10-15, deadline = created+7d.
+2. SimulationConfig.java — Jackson loader, nested static POJOs, load(path|null).
+   Added jackson-databind to pom.xml.
+3. SimulationRunner.java — wires 6 services, prints setup. Made 5 service/model
+   ctors public. Vehicle + SplitOrder now Comparable. Fixed ClusterService NPE
+   (geoUtils never init).
+4. Hourly loop — 720 ticks, currTime updated, daily progress print.
+5. OrderGenerator.java — per-hour rates night 0-2 / morn 2-5 / aft 3-8 / eve 2-4.
+   Random customer, 1-maxItems items, fixed 7d deadline. ~2,349 orders/run.
+6. Order processing — drain queue each hour via processOrder(). Added
+   pendingOrderCount() + completedSplitOrdersTotal(). Fixed empty-queue NPE.
+7. Execution — all 20 clusters/hour via executeOrders(c). Vehicle
+   outForDeliveryUntil init to simStart. ~6,002 splits delivered. additionalMillis
+   formula VERIFIED CORRECT: (mxTime*60 + n*5)*60*1000 (5 min/order loading).
+8. RandomEventGenerator.java — 7 events w/ probabilities (refill .15, +wh .10,
+   +vehicle .10, close .08, reopen .10, spike .08, clear .05). Added
+   getRoads()/getLocations() to CityReplicaService. ~467 events/run.
+
+=== DECISIONS LOCKED ===
+- Storage: SQLite, ONE FILE PER RUN (simulation_runs/run_<dates>_seed<seed>_<tag>.db)
+  + index.csv phonebook (run_id,path,seed,tag,key results). Rationale: user runs
+  100 sims same date range; aggregation via multi-file reader is fine.
+- Dashboard: CLI tables + static HTML report (no web app yet).
+- CLI args override config file; config is fallback. Flags: --config --db --seed
+  --start --end. --db given = exact path; else auto-named from start/end/seed.
+- Warehouse inventory: NO hourly full matrix (4.3M rows). Daily totals +
+  on-change/low-stock rows only.
+- Dashboard reads ONLY from SQLite, never memory counters.
+
+=== PENDING (Step 9a-9f, Level-1 data collection) ===
+9a. sqlite-jdbc dep + MetricsCollector (WAL mode, schema create, meta row).
+    Verification: empty .db + meta row; CLI + config resolution check.
+9b. hourly_summary capture + CLI table from SQL.
+9c. orders + split_orders capture (needs delivered-timestamp hook).
+9d. dispatches + vehicle_hourly + stockouts + events (needs distance + stockout hooks).
+9e. RunAggregator (multi-file merge) + index.csv writer.
+9f. Static HTML report generator (report_<run>.html).
+
+=== 4 REQUIRED HOOKS (small code changes, identified, not yet done) ===
+H1. Set orderDelivered/SplitOrder.orderDelivered = currTime in completedSplitOrder().
+H2. Accumulate Vehicle.totalDistanceCovered per dispatch (stuck at 0).
+H3. Log stockouts row instead of silent return in subtractItemFromWarehouse path.
+H4. Wire trafficMultiplier into Dijkstra (currently ignored → traffic events are theater).
+
+=== KEY FILES ===
+NEW: simulation.json, SimulationConfig(+Test), SimulationRunner, OrderGenerator,
+     RandomEventGenerator
+MOD: OrderHandlerService (counters+empty-check), CityReplicaService (pub ctor,
+     getRoads/getLocations), VehicleService/WarehouseService/ClusterService
+     (pub ctor), Vehicle/SplitOrder (Comparable), pom.xml (jackson-databind)
+DEL: simulation-stories.txt (removed after copy)
+
+=== SCHEMA (agreed, not yet created) ===
+meta | orders | split_orders | dispatches | hourly_summary | vehicle_hourly |
+warehouse_daily (totals/on-change) | stockouts | events
+config_hash (SHA-256 of config JSON) in meta → groups same-config-different-seed.
+
+=== NEXT ACTION ===
+Approve Step 9a → add dep + MetricsCollector + schema + CLI resolution.
+Each subsequent step verified by user running sim + querying .db before moving on.

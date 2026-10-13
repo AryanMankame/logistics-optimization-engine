@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logistics Analytics — __RUNID__</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1420; --card: #1a2233; --card2: #212b40; --text: #e8ecf4; --muted: #8b96ab;
+    --accent: #4f8cff; --green: #2ecc71; --red: #e74c3c; --amber: #f39c12; --purple: #9b59b6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .header h1 { font-size: 26px; }
+  .header .meta { color: var(--muted); font-size: 13px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .kpi { background: var(--card); border-radius: 10px; padding: 14px 16px; }
+  .kpi .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .kpi .sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .section-title { font-size: 18px; font-weight: 700; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid #2a3550; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border-radius: 10px; padding: 18px; min-width: 0; }
+  .card h2 { font-size: 15px; margin-bottom: 4px; }
+  .card .tag { color: var(--accent); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .desc { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .card.full { grid-column: 1 / -1; }
+  .chart-box { position: relative; height: 300px; }
+  .chart-box canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+  .table-wrap { max-height: 380px; overflow: auto; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { position: sticky; top: 0; background: var(--card2); z-index: 1; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #2a3550; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:hover td { background: var(--card2); }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  select { background: var(--card2); color: var(--text); border: 1px solid #2a3550; border-radius: 6px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; max-width: 100%; }
+  .stat-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat-row .stat .l { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+  .stat-row .stat .v { font-size: 20px; font-weight: 700; }
+  .hero-stat { font-size: 42px; font-weight: 700; }
+  .footer { color: var(--muted); font-size: 11px; margin-top: 24px; text-align: center; }
+  .methodology { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.6; }
+  .note { color: var(--muted); font-size: 11px; font-style: italic; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Logistics Analytics Dashboard</h1>
+  <div class="meta" id="runMeta"></div>
+</div>
+<div class="kpis" id="kpis"></div>
+
+<div class="section-title">Sales &amp; Demand</div>
+<div class="grid">
+  <div class="card full">
+    <div class="tag">Demand · Q1</div><h2>Warehouse Demand — Top &amp; Slow Sellers</h2>
+    <div class="desc">Pick a warehouse to see its 5 fastest-moving and 5 slowest-moving items by fulfilled quantity.</div>
+    <select id="whSelect"></select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="q1panes">
+      <div><div class="desc">Top sellers</div><div class="chart-box"><canvas id="q1top"></canvas></div></div>
+      <div><div class="desc">Slow movers</div><div class="chart-box"><canvas id="q1bottom"></canvas></div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="tag">Basket · Q7</div><h2>Basket Size</h2>
+    <div class="desc" id="q7desc"></div>
+    <div class="chart-box"><canvas id="q7"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="tag">Volume · Q8</div><h2>Daily Deliveries</h2>
+    <div class="desc">Orders delivered per day across the run.</div>
+    <div class="chart-box"><canvas id="q8"></canvas></div>
+  </div>
+</div>
+
+<div class="section-title">Warehouses</div>
+<div class="grid">
+  <div class="card full">
+    <div class="tag">P&amp;L · Q2</div><h2>Warehouse Revenue vs Profit</h2>
+    <div class="desc">Top 15 warehouses by turnover. Full list in the scorecard below.</div>
+    <div class="chart-box"><canvas id="q2"></canvas></div>
+  </div>
+  <div class="card full">
+    <div class="tag">Scorecard · Q14</div><h2>Warehouse Scorecard</h2>
+    <div class="desc">Cost stack, profit and service efficiency per warehouse. Scroll to explore.</div>
+    <div class="table-wrap"><table id="q14table"></table></div>
+  </div>
+</div>
+
+<div class="section-title">Fleet</div>
+<div class="grid">
+  <div class="card">
+    <div class="tag">Fuel · Q3</div><h2>Fuel Use</h2>
+    <div class="desc" id="q3desc"></div>
+    <div class="chart-box"><canvas id="q3"></canvas></div>
+    <div class="note">Top 20 of <span id="q3n"></span> vehicles — full list in Vehicle P&amp;L.</div>
+  </div>
+  <div class="card">
+    <div class="tag">Utilisation · Q4</div><h2>Hours Out for Delivery</h2>
+    <div class="desc">Top 20 vehicles by time spent on dispatches.</div>
+    <div class="chart-box"><canvas id="q4"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="tag">Idleness · Q5</div><h2>Fleet Idleness by Hour of Day</h2>
+    <div class="desc">Share of the fleet not on a dispatch, per hour.</div>
+    <div class="chart-box"><canvas id="q5"></canvas></div>
+  </div>
+  <div class="card full">
+    <div class="tag">Vehicle P&amp;L · Q15</div><h2>Vehicle Profit &amp; Loss</h2>
+    <div class="desc">Turnover attributed to each vehicle minus its goods cost and fuel. Scroll to explore.</div>
+    <div class="table-wrap"><table id="q15table"></table></div>
+  </div>
+</div>
+
+<div class="section-title">Service Quality</div>
+<div class="grid">
+  <div class="card">
+    <div class="tag">On-time · Q6</div><h2>Delivery Performance</h2>
+    <div class="desc" id="q6desc"></div>
+    <div class="chart-box"><canvas id="q6"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="tag">Lead time · Q13</div><h2>Delivery Time Distribution</h2>
+    <div class="desc">Order-level created → delivered.</div>
+    <div class="stat-row" id="q13stats"></div>
+    <div class="chart-box"><canvas id="q13"></canvas></div>
+  </div>
+  <div class="card full">
+    <div class="tag">Reach · Q9</div><h2>Furthest Ordering Locations</h2>
+    <div class="desc">Top 10 customers by straight-line distance to their nearest warehouse.</div>
+    <div class="table-wrap"><table id="q9table"></table></div>
+  </div>
+</div>
+
+<div class="section-title">Money</div>
+<div class="grid">
+  <div class="card">
+    <div class="tag">Costs · Q10</div><h2>Operational Cost Mix</h2>
+    <div class="desc" id="q10desc"></div>
+    <div class="chart-box"><canvas id="q10"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="tag">Profit · Q11</div><h2>From Turnover to Net Profit</h2>
+    <div class="desc">Turnover → goods cost → gross → delivery income → operational costs → net.</div>
+    <div class="chart-box"><canvas id="q11"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="tag">Target · Required fee</div><h2>Fee Needed for Your Target Return</h2>
+    <div class="desc" id="reqdesc"></div>
+    <div class="stat-row" id="reqstats"></div>
+  </div>
+  <div class="card">
+    <div class="tag">Unit economics · Q12</div><h2>Profit per Order</h2>
+    <div class="desc">Net profit ÷ delivered orders.</div>
+    <div class="hero-stat" id="q12"></div>
+    <div class="desc" id="q12sub"></div>
+  </div>
+</div>
+
+<div class="footer">Generated by Logistics Analytics · schema v__SCHEMAV__ · <span id="genAt"></span></div>
+<div class="card full" style="margin-top:16px">
+  <h2>Methodology &amp; Assumptions</h2>
+  <div class="methodology">
+    <b>Turnover</b> = Σ orders.total_amount, where each line is item selling price × qty. <b>Goods cost (COGS)</b> = Σ item buy-cost × qty from fulfilled splits — each item carries its own margin (selling price vs buy cost, default 10% when not configured).
+    <b>Gross profit</b> = turnover − COGS. <b>Delivery income</b> = per-km fee × radial warehouse→house km per fulfilled split (0 when free delivery).
+    Each dispatch is a real van tour (warehouse → nearest house → next … → back to warehouse, greedy nearest-stop); <b>fuel and trip time use the full tour distance</b>, while the customer fee stays quoted on radial distance.
+    <b>Operational cost</b> = warehouse maintenance (warehouses × runDays × ₹/day) + fuel (Σ tour distance × L/km × ₹/L) + packaging (orders × ₹/order). <b>Net profit</b> = gross + delivery income − operational.
+    <b>Required fee, two jobs</b>: job 1 — the rate must at least cover fuel (floor = L/km × ₹/L); job 2 — product margin + delivery margin must lift net ÷ total cost to the target return. Recommended rate is the higher of the two, so delivery always pays its own fuel.
+    Warehouse profit = its turnover − its goods cost − maintenance − dispatch fuel − packaging. Vehicle profit = attributed turnover − attributed goods cost − vehicle fuel (internal allocation; excludes maintenance/packaging).
+    Delivery time = order_delivered − order_created (order level). Note: this simulation fulfills every order within the same hour it is created, so order-level lead time is 0h by design — see vehicle hours-out for the meaningful duration signal.
+    Idle-by-hour uses dispatch start hour + duration windows. Furthest locations use straight-line (haversine) distance to the nearest warehouse.
+  </div>
+</div>
+<script>
+const DATA = __DATA__;
+const fmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+const fmt2 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+const money = v => '₹' + fmt.format(v);
+const num = v => fmt2.format(v);
+const C = { blue:'#4f8cff', green:'#2ecc71', red:'#e74c3c', amber:'#f39c12', purple:'#9b59b6', cyan:'#1abc9c', pink:'#e91e63' };
+const GRID = '#2a3550', TICK = '#8b96ab';
+const charts = {};
+function mk(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+const axOpts = { x: { ticks: { color: TICK, maxRotation: 60 }, grid: { display: false } }, y: { ticks: { color: TICK }, grid: { color: GRID } } };
+function hbar(id, labels, datasets) {
+  mk(id, { type: 'bar', data: { labels, datasets },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: datasets.length > 1, labels: { color: TICK } } }, scales: axOpts } });
+}
+function vbar(id, labels, values, color, label) {
+  mk(id, { type: 'bar', data: { labels, datasets: [{ label: label || '', data: values, backgroundColor: color, borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: !!label, labels: { color: TICK } } }, scales: axOpts } });
+}
+function donut(id, labels, values, colors) {
+  mk(id, { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: TICK, boxWidth: 12 } } } } });
+}
+function fillTable(id, head, rows) {
+  document.getElementById(id).innerHTML = '<thead><tr>' +
+    head.map(h => '<th' + (h.num ? ' class="num"' : '') + '>' + h.t + '</th>').join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + r.map((c, i) => '<td' + (head[i].num ? ' class="num"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') +
+    '</tbody>';
+}
+
+document.getElementById('runMeta').textContent =
+  DATA.meta.runId + ' · seed ' + DATA.meta.seed + ' · ' + DATA.meta.startDate + ' → ' + DATA.meta.endDate + ' (' + DATA.meta.runDays + ' days)';
+document.getElementById('genAt').textContent = new Date().toLocaleString();
+
+const K = DATA.kpis;
+const marginPct = K.revenue > 0 ? 100 * K.grossProfit / K.revenue : 0;
+const kpiDefs = [
+  ['Turnover', money(K.revenue), fmt.format(K.orders) + ' orders'],
+  ['Gross Profit', money(K.grossProfit), num(marginPct) + '% margin'],
+  ['Delivery Income', money(K.feeIncome), 'fees collected'],
+  ['Net Profit', money(K.netProfit), K.netProfit >= 0 ? 'profitable' : 'loss-making'],
+  ['Profit / Order', money(K.profitPerOrder), 'net ÷ delivered'],
+  ['On-time', num(K.onTimePct) + '%', fmt.format(K.deliveredOrders) + ' delivered'],
+  ['Fuel Cost', money(K.totalFuelCost), num(K.totalFuelLiters) + ' L'],
+  ['Warehouses', K.warehouseCount, K.vehicleCount + ' vehicles'],
+  ['Avg Basket', num(DATA.q7.avgItemsPerOrder) + ' items', num(DATA.q7.avgUnitsPerOrder) + ' units'],
+];
+document.getElementById('kpis').innerHTML = kpiDefs.map(k =>
+  '<div class="kpi"><div class="label">' + k[0] + '</div><div class="value">' + k[1] + '</div><div class="sub">' + k[2] + '</div></div>'
+).join('');
+
+// Q1 — warehouse selector + top/bottom bars
+(function() {
+  const sel = document.getElementById('whSelect');
+  const whs = DATA.q1.warehouses;
+  sel.innerHTML = whs.map(w => '<option>' + w.warehouseId + '</option>').join('');
+  function render() {
+    const w = whs.find(x => x.warehouseId === sel.value) || whs[0];
+    hbar('q1top', w.top.map(t => t.itemName), [{ data: w.top.map(t => t.qty), backgroundColor: C.green, borderRadius: 4 }]);
+    hbar('q1bottom', w.bottom.map(b => b.itemName), [{ data: w.bottom.map(b => b.qty), backgroundColor: C.red, borderRadius: 4 }]);
+  }
+  sel.addEventListener('change', render);
+  render();
+})();
+
+// Q7
+(function() {
+  const d = DATA.q7;
+  document.getElementById('q7desc').textContent = 'Avg ' + num(d.avgItemsPerOrder) + ' items · ' + num(d.avgUnitsPerOrder) + ' units per order.';
+  vbar('q7', d.itemsHistogram.map(b => b.label), d.itemsHistogram.map(b => b.orders), C.pink, 'Orders');
+})();
+
+// Q8
+(function() {
+  const d = DATA.q8;
+  mk('q8', { type: 'line', data: { labels: d.map(x => x.day.slice(5)), datasets: [{ label: 'Orders', data: d.map(x => x.orders), borderColor: C.green, backgroundColor: C.green + '33', fill: true, tension: 0.3, pointRadius: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axOpts } });
+})();
+
+// Q2 — top 15 by revenue
+(function() {
+  const d = [...DATA.q2].sort((a, b) => b.revenue - a.revenue).slice(0, 15);
+  const labels = d.map(w => w.warehouseId.replace('Warehouse_', 'W'));
+  hbar('q2', labels, [
+    { label: 'Turnover', data: d.map(w => w.revenue), backgroundColor: C.blue, borderRadius: 4 },
+    { label: 'Profit', data: d.map(w => w.profit), backgroundColor: d.map(w => w.profit >= 0 ? C.green : C.red), borderRadius: 4 }
+  ]);
+})();
+
+// Q14
+fillTable('q14table',
+  [{t:'Warehouse'},{t:'Turnover',num:1},{t:'Goods cost',num:1},{t:'Fee',num:1},{t:'Opex',num:1},{t:'Profit',num:1},{t:'Profit/Order',num:1},
+   {t:'Orders',num:1},{t:'Avg hrs',num:1},{t:'On-time %',num:1}],
+  DATA.q14.map(w => { const opex = w.totalCost - (w.cogs || 0); return [w.warehouseId, money(w.revenue), money(w.cogs || 0), money(w.feeIncome || 0), money(opex),
+    '<span class="' + (w.profit >= 0 ? 'pos' : 'neg') + '">' + money(w.profit) + '</span>',
+    money(w.profitPerOrder), fmt.format(w.ordersFulfilled), num(w.avgDeliveryHours), num(w.onTimePct) + '%']; }));
+
+// Q3 — top 20 by litres
+(function() {
+  const d = [...DATA.q3.perVehicle].sort((a, b) => b.liters - a.liters).slice(0, 20);
+  document.getElementById('q3desc').textContent = num(DATA.q3.totalLiters) + ' L total · ' + money(DATA.q3.totalCost) + ' · ' + num(DATA.q3.totalDistanceKm) + ' km.';
+  document.getElementById('q3n').textContent = DATA.q3.perVehicle.length;
+  hbar('q3', d.map(v => v.vehicleId.replace('Vehicle_', 'V')), [{ data: d.map(v => v.liters), backgroundColor: C.amber, borderRadius: 4 }]);
+})();
+
+// Q4 — top 20 by hours
+(function() {
+  const d = DATA.q4.slice(0, 20);
+  hbar('q4', d.map(v => v.vehicleId.replace('Vehicle_', 'V')), [{ data: d.map(v => v.hoursOut), backgroundColor: C.cyan, borderRadius: 4 }]);
+})();
+
+// Q5
+(function() {
+  const d = DATA.q5;
+  vbar('q5', d.map(h => String(h.hourOfDay).padStart(2, '0')), d.map(h => h.idlePct), C.purple, 'Idle %');
+})();
+
+// Q15
+fillTable('q15table',
+  [{t:'Vehicle'},{t:'Turnover',num:1},{t:'Goods cost',num:1},{t:'Fee',num:1},{t:'Distance (km)',num:1},{t:'Fuel',num:1},{t:'Profit',num:1},
+   {t:'Hours',num:1},{t:'Dispatches',num:1},{t:'Splits',num:1}],
+  DATA.q15.map(v => [v.vehicleId, money(v.revenue), money(v.cogs || 0), money(v.feeIncome || 0), num(v.distanceKm), money(v.fuelCost),
+    '<span class="' + (v.profit >= 0 ? 'pos' : 'neg') + '">' + money(v.profit) + '</span>',
+    num(v.hoursOut), fmt.format(v.dispatches), fmt.format(v.splitsDelivered)]));
+
+// Q6
+(function() {
+  const d = DATA.q6;
+  document.getElementById('q6desc').textContent = num(d.onTimePct) + '% on time · ' + fmt.format(d.onTime) + ' orders.';
+  donut('q6', ['On time', 'Late', 'Undelivered'], [d.onTime, d.late, d.undelivered], [C.green, C.red, C.gray || '#8b96ab']);
+})();
+
+// Q13
+(function() {
+  const d = DATA.q13;
+  const stats = [['Mean', num(d.meanHours) + ' h'], ['Std dev', num(d.stdDevHours) + ' h'], ['Variance', num(d.varianceHours2) + ' h²'],
+    ['Median', num(d.medianHours) + ' h'], ['Samples', fmt.format(d.sampleCount)]];
+  document.getElementById('q13stats').innerHTML = stats.map(s =>
+    '<div class="stat"><div class="l">' + s[0] + '</div><div class="v">' + s[1] + '</div></div>').join('');
+  vbar('q13', d.histogram.map(b => b.label), d.histogram.map(b => b.orders), C.blue, 'Orders');
+})();
+
+// Q9
+fillTable('q9table',
+  [{t:'Customer'},{t:'Name'},{t:'Nearest warehouse'},{t:'Distance (km)',num:1}],
+  DATA.q9.map(c => [c.customerId, c.customerName, c.warehouseId, num(c.distanceKm)]));
+
+// Q10
+(function() {
+  const d = DATA.q10;
+  document.getElementById('q10desc').textContent = money(d.total) + ' over ' + DATA.meta.runDays + ' days.';
+  donut('q10', ['Maintenance', 'Fuel', 'Packaging'], [d.maintenance, d.fuel, d.packaging], [C.blue, C.amber, C.purple]);
+})();
+
+// Q11
+(function() {
+  const d = DATA.q11;
+  const labels = ['Turnover', 'Goods cost', 'Gross profit', 'Delivery income', 'Operational', 'Net profit'];
+  const vals = [d.revenue, d.cogs, d.grossProfit, d.feeIncome, d.operationalCost, d.netProfit];
+  mk('q11', { type: 'bar', data: { labels, datasets: [{ data: vals, backgroundColor: vals.map(v => v >= 0 ? C.green : C.red), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axOpts } });
+})();
+
+// Required fee readout: job 1 (cover fuel) + job 2 (top up to target)
+(function() {
+  const f = DATA.requiredFee;
+  document.getElementById('reqdesc').textContent =
+    'Current ' + num(100 * f.currentReturn) + '% of cost vs ' + num(100 * f.targetReturn) + '% target on ' + money(f.totalCost) +
+    '. Product margin ' + money(f.productMargin) + ' · delivery margin ' + money(f.deliveryMargin) + '.';
+  const stats = [['Fuel floor', money(f.fuelFloorPerKm) + '/km'], ['Top-up', money(f.topUpPerKm) + '/km'], ['Recommended', money(f.recommendedPerKm) + '/km']];
+  document.getElementById('reqstats').innerHTML = stats.map(s =>
+    '<div class="stat"><div class="l">' + s[0] + '</div><div class="v">' + s[1] + '</div></div>').join('') +
+    '<div class="desc" style="margin-top:8px">Still needed: ' + money(f.incomeNeeded) + ' (' + money(f.perOrder) + '/order). Recommended is the higher of floor and required, so delivery always pays its own fuel.</div>';
+})();
+
+// Q12
+(function() {
+  const v = DATA.q12AvgProfitPerOrder;
+  const el = document.getElementById('q12');
+  el.textContent = money(v);
+  el.style.color = v >= 0 ? C.green : C.red;
+  document.getElementById('q12sub').textContent = 'net ' + money(DATA.q11.netProfit) + ' ÷ ' + fmt.format(DATA.kpis.deliveredOrders) + ' delivered orders';
+})();
+</script>
+</body>
+</html>

@@ -6,11 +6,16 @@ import java.util.Date;
 
 @Data
 @AllArgsConstructor
-public class Vehicle {
+public class Vehicle implements Comparable<Vehicle> {
     public String id;
     public Location location;
-    public Integer capacity;
-    public Integer totalDistanceCovered;
+    public Double capacity;
+    public Double totalDistanceCovered;
     public Double averageSpeed;
     public Date outForDeliveryUntil;
+
+    @Override
+    public int compareTo(Vehicle other) {
+        return this.capacity.compareTo(other.capacity);
+    }
 }

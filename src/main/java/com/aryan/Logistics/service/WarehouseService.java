@@ -9,7 +9,7 @@ import java.util.ArrayList;
 
 public class WarehouseService {
     private ArrayList<Warehouse> warehouses;
-    WarehouseService() {
+    public WarehouseService() {
         warehouses = new ArrayList<>();
     }
 
@@ -24,8 +24,7 @@ public class WarehouseService {
     }
     public boolean subtractItemFromWarehouse(int warehouse_id, Item item,Integer qnt) {
         try {
-            warehouses.get(warehouse_id).getInventory().subItem(item,qnt);
-            return true;
+            return warehouses.get(warehouse_id).getInventory().subItem(item,qnt);
         } catch (Exception e) {
             System.out.println("ERROR => " + e.getMessage());
             return false;
@@ -58,6 +57,10 @@ public class WarehouseService {
         }
         Warehouse wh = new Warehouse(warehouseId,location,inventory);
         warehouses.add(wh);
+    }
+
+    public ArrayList<Warehouse> getWarehouses() {
+        return warehouses;
     }
 
 }

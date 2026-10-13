@@ -7,7 +7,7 @@ import java.util.Date;
 
 @Data
 @AllArgsConstructor
-public class SplitOrder {
+public class SplitOrder implements Comparable<SplitOrder> {
     public String id;
     public Item item;
     public Integer quantity;
@@ -16,4 +16,9 @@ public class SplitOrder {
     public Date orderDelivered;
     public Customer orderedBy;
     public Order partOf;
+
+    @Override
+    public int compareTo(SplitOrder other) {
+        return this.deadline.compareTo(other.deadline);
+    }
 }

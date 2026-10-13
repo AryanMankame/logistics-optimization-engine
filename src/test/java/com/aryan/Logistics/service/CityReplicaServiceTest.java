@@ -6,6 +6,7 @@ import com.aryan.Logistics.models.Road;
 import com.aryan.Logistics.models.Warehouse;
 import com.aryan.Logistics.Utils.GeoUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -24,10 +25,10 @@ class CityReplicaServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = new ArrayList<>();
-        itemsList.add(Pair.of("Apple", Pair.of(1.5, 1.0)));
-        itemsList.add(Pair.of("Banana", Pair.of(0.8, 0.5)));
-        itemsList.add(Pair.of("Orange", Pair.of(2.0, 1.2)));
+        ArrayList<Pair<String, Triple<Double, Double, Double>>> itemsList = new ArrayList<>();
+        itemsList.add(Pair.of("Apple", Triple.of(1.5, 1.0, 1.65)));
+        itemsList.add(Pair.of("Banana", Triple.of(0.8, 0.5, 0.88)));
+        itemsList.add(Pair.of("Orange", Triple.of(2.0, 1.2, 2.2)));
 
         ArrayList<Pair<Double, Double>> locationsList = new ArrayList<>();
         locationsList.add(Pair.of(12.9716, 77.5946)); // Bangalore
@@ -40,9 +41,9 @@ class CityReplicaServiceTest {
         geoUtils = new GeoUtils();
     }
 
-    private ArrayList<Pair<String, Pair<Double, Double>>> makeItemsList() {
-        ArrayList<Pair<String, Pair<Double, Double>>> list = new ArrayList<>();
-        list.add(Pair.of("Item", Pair.of(1.0, 1.0)));
+    private ArrayList<Pair<String, Triple<Double, Double, Double>>> makeItemsList() {
+        ArrayList<Pair<String, Triple<Double, Double, Double>>> list = new ArrayList<>();
+        list.add(Pair.of("Item", Triple.of(1.0, 1.0, 1.1)));
         return list;
     }
 
@@ -209,7 +210,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_SingleLocation_ThrowsException() {
-        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<String, Triple<Double, Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946);
         WarehouseService ws = new WarehouseService();
 
@@ -220,7 +221,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_TwoLocations_Completes() {
-        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<String, Triple<Double, Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
         WarehouseService ws = new WarehouseService();
 
@@ -231,7 +232,7 @@ class CityReplicaServiceTest {
 
     @Test
     void testConstructor_WarehouseCountExceedsLocations_ThrowsIndexOutOfBounds() {
-        ArrayList<Pair<String, Pair<Double, Double>>> itemsList = makeItemsList();
+        ArrayList<Pair<String, Triple<Double, Double, Double>>> itemsList = makeItemsList();
         ArrayList<Pair<Double, Double>> locationsList = makeLocationsList(12.9716, 77.5946, 13.0827, 80.2707);
         WarehouseService ws = new WarehouseService();
 

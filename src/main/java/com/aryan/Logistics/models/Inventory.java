@@ -6,8 +6,16 @@ import java.util.Map;
 
 public class Inventory {
     private Map<Item,Integer>inventory = new HashMap<>();
-    public void subItem(Item item, Integer count) {
-        inventory.computeIfPresent(item,(k,v) -> v >= count ? v-count : null);
+    /**
+     * Removes up to count units. Returns false (leaving stock untouched) when
+     * fewer than count units are available, so a shortfall can never silently
+     * deliver phantom stock.
+     */
+    public boolean subItem(Item item, Integer count) {
+        Integer v = inventory.get(item);
+        if (v == null || v < count) return false;
+        inventory.put(item, v - count);
+        return true;
     }
     public void removeItem(Item item) {
         inventory.remove(item);
@@ -21,5 +29,9 @@ public class Inventory {
             return inventory.get(item);
         }
         return 0;
+    }
+
+    public Map<Item, Integer> snapshot() {
+        return new HashMap<>(inventory);
     }
 }
